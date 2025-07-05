@@ -266,7 +266,7 @@ public abstract class NotionExchange {
         String name; // not used in entry reading
         PropertyType type;
         NotionSelect select;
-        List<NotionPropertyRichText> rich_text;
+        NotionPropertyRichText rich_text;
         NotionPropertyRichText title;
     }
     

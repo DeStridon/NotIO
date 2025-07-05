@@ -14,14 +14,14 @@ public class NotIO {
 	
 	@Data
 	public abstract static class Entity implements IEntity{
-		String notionEntryId;
-		String notionDatabaseId;
+		public String notionEntryId;
+		public String notionDatabaseId;
 	}
 	
 	public static @interface Table{
 		String name = "";
 	}
-	
+	@Retention(RetentionPolicy.RUNTIME)
 	public static @interface Title {
 		String value();
 	}

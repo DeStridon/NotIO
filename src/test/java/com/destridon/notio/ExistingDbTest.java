@@ -16,7 +16,7 @@ public class ExistingDbTest {
 
 		SampleEntity sampleEntity = SampleEntity.builder().name("Test").build();
 
-		notionDatabase.insertOrUpdate(sampleEntity);
+		notionDatabase.updateOrInsert(sampleEntity);
 		
 		List<SampleEntity> sampleEntities = notionDatabase.getEntries(SampleEntity.class);
 

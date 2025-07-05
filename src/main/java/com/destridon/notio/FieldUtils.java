@@ -80,6 +80,8 @@ public class FieldUtils {
 			return;
 		}
 		
+		field.setAccessible(true);
+		
 		Convert convertAnnotation = field.getDeclaredAnnotation(Convert.class);
 		
 		if(convertAnnotation != null) {
