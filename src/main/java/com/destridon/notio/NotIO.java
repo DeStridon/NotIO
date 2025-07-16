@@ -9,7 +9,9 @@ public class NotIO {
 	
 	public static interface IEntity { 
 		public String getNotionEntryId();
+		public void setNotionEntryId(String notionEntryId);
 		public String getNotionDatabaseId();
+		public void setNotionDatabaseId(String notionDatabaseId);
 	}
 	
 	@Data

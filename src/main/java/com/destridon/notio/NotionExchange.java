@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.destridon.athttp.AtHttp;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +24,9 @@ public abstract class NotionExchange {
 	
     @AtHttp.Path("pages")
     public abstract String postPage(@AtHttp.RequestBody PagePostInput input);
+    
+    @AtHttp.Path("pages")
+    public abstract String postPageString(@AtHttp.RequestBody String input);
 
     @AtHttp.Path("pages/{pageId}")
     public abstract String patchPage(@AtHttp.RequestParam(value = "pageId") String pageId, @AtHttp.RequestBody PagePatchInput input);
@@ -66,7 +71,8 @@ public abstract class NotionExchange {
     public static class PagePostInput {
         NotionParent parent;
         Map<String, Map<PropertyType, Object>> properties;
-        List<Object> children;
+        
+        @JsonInclude(Include.NON_NULL) List<Object> children;
     }
 
 //    public static class Parent {
@@ -223,6 +229,7 @@ public abstract class NotionExchange {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonInclude(Include.NON_NULL)
     public static class NotionParent {
         String type;
         String page_id;
@@ -301,7 +308,7 @@ public abstract class NotionExchange {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PagePatchInput{
-    	Map<String, Object> properties;
+    	@JsonInclude(Include.NON_NULL) Map<String, Object> properties;
     	Boolean in_trash;
     	NotionIcon icon;
     	NotionCover cover;

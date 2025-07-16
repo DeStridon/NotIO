@@ -37,26 +37,32 @@ public class NotionDatabase {
 	NotionExchange notionExchange;
 	String notionDatabaseId;
 	Map<String, NotionModelProperty> databaseModel;
-	
+	JacksonSerializer mapper;
 	
     public NotionDatabase(String apiKey, String notionDatabaseId) {
     
-    	JacksonSerializer mapper = new JacksonSerializer();
-    	
-    	Map<String, String> notionVariables = new HashMap<>();
-        notionVariables.put("api_key", apiKey);
-        notionExchange = AtHttp.generate(NotionExchange.class, notionVariables, mapper);
-        
-        // this.httpClient = client;
+    	mapper = new JacksonSerializer();
         // mapper.getMapper().setSerializationInclusion(Include.NON_NULL);
-
         mapper.getMapper().configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         mapper.getMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.getMapper().configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         mapper.getMapper().configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, false);
         mapper.getMapper().configure(DeserializationFeature.FAIL_ON_INVALID_SUBTYPE, false);
+        
+        
+        Map<String, String> notionVariables = new HashMap<>();
+        notionVariables.put("api_key", apiKey);
+        notionExchange = AtHttp.generate(NotionExchange.class, notionVariables, mapper);
 
         this.notionDatabaseId = notionDatabaseId;
+        
+//        //String bodySample = "{\"parent\":{\"type\":\"database_id\",\"database_id\":\"1f283aaaa6bd8046878ed7e9a16940fc\"},\"properties\":{\"Verb\":{\"select\":{\"name\":\"POST\"}},\"Path\":{\"rich_text\":[{\"text\":{\"content\":\"/api/owner/video/upload/part\"}}]},\"Status\":null,\"Name\":{\"title\":[{\"text\":{\"content\":\"com.sapience.api.owner.VideoUploadController::uploadPart\"}}]},\"Description\":{\"rich_text\":[]}}}";
+//        //String bodySample = "{\"parent\":{\"type\":\"database_id\",\"database_id\":\"1f283aaaa6bd8046878ed7e9a16940fc\"},\"properties\":{\"Path\":{\"rich_text\":[{\"text\":{\"content\":\"/api/owner/video/upload/part\"}}]},\"Status\":null,\"Name\":{\"title\":[{\"text\":{\"content\":\"com.sapience.api.owner.VideoUploadController::uploadPart\"}}]},\"Description\":{\"rich_text\":[]}}}";
+//        String bodySample = "{\"parent\":{\"type\":\"database_id\",\"database_id\":\"1f283aaaa6bd8046878ed7e9a16940fc\"},\"properties\":{\"Path\":{\"rich_text\":[{\"text\":{\"content\":\"/api/owner/video/upload/part\"}}]},\"Name\":{\"title\":[{\"text\":{\"content\":\"com.sapience.api.owner.VideoUploadController::uploadPart\"}}]},\"Description\":{\"rich_text\":[]}}}";
+//        
+//        String result = notionExchange.postPageString(bodySample);
+//        
+//        System.out.println(result);
         
     }
     
@@ -79,6 +85,10 @@ public class NotionDatabase {
     	
     	for(DatabaseOutput databaseOutput : databaseQueryOutput.results) {
     		U obj = constructor.newInstance();
+    		
+    		obj.setNotionDatabaseId(notionDatabaseId);
+    		obj.setNotionEntryId(databaseOutput.id);
+    		
     		for(Field field : FieldUtils.getEntityFields(entity)) {
     			
     			String columnName = getColumnName(field);
@@ -120,7 +130,8 @@ public class NotionDatabase {
 
 	@SneakyThrows
 	public <U extends IEntity> void delete(U obj) {
-		notionExchange.patchPage(obj.getNotionEntryId(), PagePatchInput.builder().in_trash(true).build());
+		String result = notionExchange.patchPage(obj.getNotionEntryId(), PagePatchInput.builder().in_trash(true).build());
+		System.out.println(result);
 	}
 
 	private String getColumnName(Field field) {
@@ -151,22 +162,25 @@ public class NotionDatabase {
 	public <U extends IEntity> void update(U obj) {
 
 		PagePatchInput input = new PagePatchInput();
+		
+		input.properties = new HashMap<>();
 
 		for(Field field : FieldUtils.getEntityFields(obj.getClass())) {
 			String name = getColumnName(field);
 
 			field.setAccessible(true);
-			String value = field.get(obj).toString();
+			
+			String value = field.get(obj) == null ? null : field.get(obj).toString();
 
 			PropertyType propertyType = databaseModel.get(name).getType();
 			if(propertyType == PropertyType.title) {
-				input.properties.put(name, Map.of(PropertyType.title, Arrays.asList(Map.of("text", Map.of("content", value)))));
+				input.properties.put(name, Map.of(PropertyType.title, Arrays.asList(Map.of("text", generateMap("content", value)))));
 			}
 			else if(propertyType == PropertyType.rich_text) {
-				input.properties.put(name, Map.of(PropertyType.rich_text, Arrays.asList(Map.of("text", Map.of("content", value)))));
+				input.properties.put(name, Map.of(PropertyType.rich_text, Arrays.asList(Map.of("text", generateMap("content", value)))));
 			}
 			else if(propertyType == PropertyType.select) {
-				input.properties.put(name, Map.of(PropertyType.select, Map.of("name", value)));
+				input.properties.put(name, Map.of(PropertyType.select, generateMap("name", value)));
 			}
 			else{
 				log.error("This type is not mapped yet : "+propertyType);
@@ -183,6 +197,7 @@ public class NotionDatabase {
 		
 		PagePostInput input = new PagePostInput();
 		input.parent = new NotionParent();
+		input.parent.type = "database_id";
 		input.parent.database_id = notionDatabaseId;
 
 		input.properties = new LinkedHashMap<>();
@@ -200,15 +215,27 @@ public class NotionDatabase {
 			}
 
 			PropertyType propertyType = property.getType();
-			
+			if(value == null) {
+				continue;
+			}
 			if(propertyType == PropertyType.title) {
 				input.properties.put(name, Map.of(PropertyType.title, Arrays.asList(Map.of("text", generateMap("content", value)))));
 			}
 			else if(propertyType == PropertyType.rich_text) {
-				input.properties.put(name, Map.of(PropertyType.rich_text, Arrays.asList(Map.of("text", generateMap("content", value)))));
+//				if(value == null) {
+//					input.properties.put(name, Map.of(PropertyType.rich_text, new ArrayList<>()));
+//				}
+//				else {
+					input.properties.put(name, Map.of(PropertyType.rich_text, Arrays.asList(Map.of("text", generateMap("content", value)))));
+//				}
 			}
 			else if(propertyType == PropertyType.select) {
-				input.properties.put(name, Map.of(PropertyType.select, generateMap("name", value)));
+//				if(value == null) {
+//					input.properties.put(name, null);
+//				}
+//				else {
+					input.properties.put(name, Map.of(PropertyType.select, generateMap("name", value)));
+//				}
 			}
 			else{
 				log.error("This type is not mapped yet : "+propertyType);
@@ -216,9 +243,13 @@ public class NotionDatabase {
 
 		}
 
+		
 		String result = notionExchange.postPage(input);
 		if(result.startsWith("{\"object\":\"error\"")) {
-			System.out.println(result);
+			System.out.println("---- Issue with request ----");
+			System.out.println("Request = "+mapper.serialize(input));
+			System.out.println("Result = "+result);
+			System.out.println("----------------------------");
 		}
 	}
 
@@ -227,6 +258,8 @@ public class NotionDatabase {
 		map.put(key, value);
 		return map;
 	}
+	
+
 
 	
 		
